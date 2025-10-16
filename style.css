@@ -1,0 +1,15 @@
+
+/* style.css - custom styles extracted and improved */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+body { font-family: 'Inter', sans-serif; }
+.header { background: linear-gradient(90deg, #e6f4ff 0%, #dff1ff 100%); } /* soft light blue */
+.question-card { padding: 1rem; }
+.explanation { max-height: 0; overflow: hidden; transition: max-height 0.6s ease, padding 0.6s ease; padding-top: 0; padding-bottom: 0; border-left-width: 0; }
+.explanation.show { max-height: 2000px; padding: 1rem; border-left: 4px solid rgba(59,130,246,0.2); }
+.option-btn { border: 1px solid #e2e8f0; background: white; }
+.option-btn.correct { background-color: #10B981 !important; border-color: #059669 !important; color: white !important; }
+.option-btn.incorrect { background-color: #EF4444 !important; border-color: #DC2626 !important; color: white !important; }
+.toggle-expl { cursor: pointer; color: #2563EB; }
+.soal-navigator::-webkit-scrollbar { height: 8px; }
+.soal-navigator::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+.nav-btn { margin-right: 6px; background: white; border: 1px solid #e6eef9; }
