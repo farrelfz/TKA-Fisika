@@ -23,6 +23,19 @@
     <main id="quiz-container" class="bg-white p-6 rounded-2xl shadow-lg flex-1">
       <!-- Questions rendered here -->
     </main>
+   
+    <div class="mt-6 flex flex-col gap-4">
+      <div class="flex items-center gap-4">
+        <button id="prev-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">Sebelumnya</button>
+        <div id="progress" class="text-center text-lg font-medium text-gray-700 flex-1"></div>
+        <button id="next-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">Selanjutnya</button>
+      </div>
+      <div class="flex items-center gap-4 mt-2">
+        <input id="soal-slider" type="range" min="1" max="140" value="1" class="w-full" />
+        <span id="slider-value" class="font-semibold text-gray-700">1 / 140</span>
+      </div>
+    </div>
+  </div>
 
   <footer class="bg-white mt-8 py-4 shadow-inner">
     <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
