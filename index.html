@@ -34,6 +34,36 @@
       background-color: #EF4444 !important;
       color: white !important;
     }
+    /* Slider navigasi soal */
+    #question-slider {
+      -webkit-overflow-scrolling: touch;
+    }
+    #slider-track {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.125rem;
+      min-height: 2.5rem;
+    }
+    .slider-item {
+      min-width: 2rem;
+      height: 2rem;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #e5e7eb; /* gray-200 */
+      color: #374151; /* gray-700 */
+      font-weight: 600;
+      border: 2px solid transparent;
+    }
+    .slider-item.active {
+      background-color: #2563eb; /* blue-600 */
+      color: white;
+    }
+    .slider-item.answered {
+      border-color: #10B981; /* emerald-500 */
+    }
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -53,6 +83,10 @@
       <h1 class="text-3xl font-bold">Latihan Soal Fisika TKA 2025</h1>
       <p id="user-display" class="text-sm opacity-90"></p>
     </header>
+
+    <div id="question-slider" class="mb-4 overflow-x-auto">
+      <div id="slider-track"></div>
+    </div>
 
     <main id="quiz-container" class="bg-white p-6 rounded-2xl shadow-lg flex-1"></main>
 
@@ -83,8 +117,13 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
     const db = getFirestore(app);
+    let analytics = null;
+    try {
+      analytics = getAnalytics(app);
+    } catch (e) {
+      console.warn("Firebase Analytics nonaktif atau tidak didukung:", e);
+    }
 
     // Variabel global
     const loginSection = document.getElementById('login-section');
@@ -97,6 +136,8 @@
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
     const saveBtn = document.getElementById('save-btn');
+    const sliderContainer = document.getElementById('question-slider');
+    const sliderTrack = document.getElementById('slider-track');
 
     let username = localStorage.getItem("username") || "";
     let currentQuestionIndex = 0;
@@ -2104,11 +2145,12 @@
       loginSection.classList.add("hidden");
       quizSection.classList.remove("hidden");
       const saved = await loadProgress(username);
-      if (saved) {
+    if (saved) {
         userAnswers = saved.answers || [];
         totalScore = saved.score || 0;
       }
-      renderQuestion();
+    buildSlider();
+    renderQuestion();
     });
 
     // ---------------- FIREBASE SAVE & LOAD ----------------
@@ -2140,7 +2182,43 @@
       saveProgress(username, userAnswers, totalScore);
     });
 
-    // ---------------- QUIZ CORE ----------------
+  // ---------------- SLIDER NAV ----------------
+  function buildSlider() {
+    if (!sliderTrack) return;
+    sliderTrack.innerHTML = "";
+    for (let i = 0; i < questions.length; i++) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "slider-item";
+      item.textContent = String(i + 1);
+      item.setAttribute("aria-label", `Soal ${i + 1}`);
+      item.addEventListener("click", () => {
+        currentQuestionIndex = i;
+        renderQuestion();
+      });
+      sliderTrack.appendChild(item);
+    }
+    updateSliderState();
+  }
+
+  function updateSliderState() {
+    if (!sliderTrack) return;
+    const items = sliderTrack.querySelectorAll(".slider-item");
+    items.forEach((el, i) => {
+      const isActive = i === currentQuestionIndex;
+      const ans = userAnswers[i];
+      const answered = ans != null && (Array.isArray(ans) ? ans.some(Boolean) : true);
+      el.classList.toggle("active", isActive);
+      el.classList.toggle("answered", !!answered);
+    });
+    const activeEl = items[currentQuestionIndex];
+    if (sliderContainer && activeEl) {
+      const left = activeEl.offsetLeft - (sliderContainer.clientWidth / 2) + (activeEl.clientWidth / 2);
+      sliderContainer.scrollTo({ left: Math.max(left, 0), behavior: "smooth" });
+    }
+  }
+
+  // ---------------- QUIZ CORE ----------------
     function renderQuestion() {
       const q = questions[currentQuestionIndex];
       let html = `<div><p class="text-lg font-semibold mb-4">${currentQuestionIndex + 1}. ${q.question}</p>`;
@@ -2182,9 +2260,10 @@
         });
       }
 
-      progressText.textContent = `Soal ${currentQuestionIndex + 1} dari ${questions.length}`;
-      prevBtn.disabled = currentQuestionIndex === 0;
-      nextBtn.disabled = currentQuestionIndex === questions.length - 1;
+    progressText.textContent = `Soal ${currentQuestionIndex + 1} dari ${questions.length}`;
+    prevBtn.disabled = currentQuestionIndex === 0;
+    nextBtn.disabled = currentQuestionIndex === questions.length - 1;
+    updateSliderState();
     }
 
     function checkMC(selected, button) {
@@ -2202,6 +2281,7 @@
       explanation.classList.add("show");
       document.querySelectorAll(".option-btn").forEach(b => b.disabled = true);
       userAnswers[currentQuestionIndex] = selected;
+      updateSliderState();
     }
 
     function checkTF(idx, val, button) {
@@ -2214,6 +2294,7 @@
 
       const allAnswered = q.statements.every((_, i) => userAnswers[currentQuestionIndex][i]);
       if (allAnswered) document.getElementById("explanation").classList.add("show");
+      updateSliderState();
     }
 
     prevBtn.onclick = () => { if (currentQuestionIndex > 0) { currentQuestionIndex--; renderQuestion(); } };
