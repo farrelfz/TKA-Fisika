@@ -34,6 +34,42 @@
       background-color: #EF4444 !important;
       color: white !important;
     }
+    /* --- Top question slider styles --- */
+    .question-slider-wrapper {
+      margin-top: 0.5rem;
+    }
+    .question-slider {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding: 0.5rem 0.25rem;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+    .question-pill {
+      flex: 0 0 auto;
+      min-width: 36px;
+      height: 36px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      border: 1px solid #d1d5db; /* gray-300 */
+      color: #374151; /* gray-700 */
+      background: #ffffff;
+      padding: 0 10px;
+    }
+    .question-pill.active {
+      border-color: #2563eb; /* blue-600 */
+      color: #2563eb;
+      background: #eff6ff; /* blue-50 */
+    }
+    .question-pill.answered {
+      border-color: #10B981; /* emerald-500 */
+      color: #065f46; /* emerald-900 */
+      background: #ecfdf5; /* emerald-50 */
+    }
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -53,6 +89,11 @@
       <h1 class="text-3xl font-bold">Latihan Soal Fisika TKA 2025</h1>
       <p id="user-display" class="text-sm opacity-90"></p>
     </header>
+
+    <!-- Top Question Slider -->
+    <div class="question-slider-wrapper">
+      <div id="question-slider" class="question-slider" aria-label="Navigasi soal"></div>
+    </div>
 
     <main id="quiz-container" class="bg-white p-6 rounded-2xl shadow-lg flex-1"></main>
 
@@ -76,14 +117,20 @@
       apiKey: "AIzaSyBd6FUA_JTiZi44p9jCOR3Pgr4UQpxi7o4",
       authDomain: "tka-fisika-app.firebaseapp.com",
       projectId: "tka-fisika-app",
-      storageBucket: "tka-fisika-app.firebasestorage.app",
+      storageBucket: "tka-fisika-app.appspot.com",
       messagingSenderId: "386649484563",
       appId: "1:386649484563:web:a9d59af5cf500202f5bee6",
       measurementId: "G-LVMSZBHKE7"
     };
 
     const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
+    // Analytics can fail in unsupported contexts; guard it safely
+    let analytics = null;
+    try {
+      analytics = getAnalytics(app);
+    } catch (e) {
+      console.warn("Analytics not initialized:", e);
+    }
     const db = getFirestore(app);
 
     // Variabel global
@@ -2107,7 +2154,11 @@
       if (saved) {
         userAnswers = saved.answers || [];
         totalScore = saved.score || 0;
+        if (typeof saved.currentQuestionIndex === 'number') {
+          currentQuestionIndex = Math.max(0, Math.min(saved.currentQuestionIndex, questions.length - 1));
+        }
       }
+      initQuestionSlider();
       renderQuestion();
     });
 
@@ -2117,6 +2168,7 @@
         await setDoc(doc(db, "progress", username), {
           answers: userAnswers,
           score: totalScore,
+          currentQuestionIndex,
           updatedAt: new Date().toISOString()
         });
         alert("✅ Progres tersimpan di database!");
@@ -2185,6 +2237,7 @@
       progressText.textContent = `Soal ${currentQuestionIndex + 1} dari ${questions.length}`;
       prevBtn.disabled = currentQuestionIndex === 0;
       nextBtn.disabled = currentQuestionIndex === questions.length - 1;
+      updateTopSliderActiveState();
     }
 
     function checkMC(selected, button) {
@@ -2202,6 +2255,7 @@
       explanation.classList.add("show");
       document.querySelectorAll(".option-btn").forEach(b => b.disabled = true);
       userAnswers[currentQuestionIndex] = selected;
+      markQuestionAnswered(currentQuestionIndex);
     }
 
     function checkTF(idx, val, button) {
@@ -2213,11 +2267,69 @@
       document.querySelectorAll(`#options .flex:nth-child(${idx + 1}) .option-btn`).forEach(b => b.disabled = true);
 
       const allAnswered = q.statements.every((_, i) => userAnswers[currentQuestionIndex][i]);
-      if (allAnswered) document.getElementById("explanation").classList.add("show");
+      if (allAnswered) {
+        document.getElementById("explanation").classList.add("show");
+        markQuestionAnswered(currentQuestionIndex);
+      }
     }
 
-    prevBtn.onclick = () => { if (currentQuestionIndex > 0) { currentQuestionIndex--; renderQuestion(); } };
-    nextBtn.onclick = () => { if (currentQuestionIndex < questions.length - 1) { currentQuestionIndex++; renderQuestion(); } };
+    prevBtn.onclick = () => {
+      if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        renderQuestion();
+        scrollActivePillIntoView();
+      }
+    };
+    nextBtn.onclick = () => {
+      if (currentQuestionIndex < questions.length - 1) {
+        currentQuestionIndex++;
+        renderQuestion();
+        scrollActivePillIntoView();
+      }
+    };
+
+    // ---------- Top slider helpers ----------
+    function initQuestionSlider() {
+      const slider = document.getElementById('question-slider');
+      if (!slider) return;
+      slider.innerHTML = '';
+      for (let i = 0; i < questions.length; i++) {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'question-pill';
+        pill.textContent = String(i + 1);
+        if (userAnswers[i] && (Array.isArray(userAnswers[i]) ? userAnswers[i].length : true)) {
+          pill.classList.add('answered');
+        }
+        pill.addEventListener('click', () => {
+          currentQuestionIndex = i;
+          renderQuestion();
+          scrollActivePillIntoView();
+        });
+        slider.appendChild(pill);
+      }
+      updateTopSliderActiveState();
+      scrollActivePillIntoView();
+    }
+
+    function updateTopSliderActiveState() {
+      const pills = document.querySelectorAll('#question-slider .question-pill');
+      pills.forEach((pill, idx) => {
+        pill.classList.toggle('active', idx === currentQuestionIndex);
+      });
+    }
+
+    function markQuestionAnswered(index) {
+      const pill = document.querySelector(`#question-slider .question-pill:nth-child(${index + 1})`);
+      if (pill) pill.classList.add('answered');
+    }
+
+    function scrollActivePillIntoView() {
+      const active = document.querySelector('#question-slider .question-pill.active');
+      if (active && active.scrollIntoView) {
+        active.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+      }
+    }
   </script>
 </body>
 </html>
